@@ -1,0 +1,16 @@
+greenplum:
+  numVolumes: "8"
+  primarySegmentCount: "3"
+  segmentVolumeSize: "200Gi"
+  segmentMemoryMaster: "10Gi"
+  segmentMemorySlave: "10Gi"
+  segmentCPUMaster: ""
+  segmentCPUSlave: ""
+
+# specify number of persistent volumes that need to be created for greenplum segments
+# specify primary segment count of the greenplum deployment
+# specify size of the volume that need to be allocated for each greenplum segment
+# specify the memory that need to be allocated for each greenplum master segment
+# specify the memory that need to be allocated for each greenplum worker segment
+# specify the CPU that need to be allocated for each greenplum master segment
+# specify the CPU that need to be allocated for each greenplum worker segment
