@@ -184,7 +184,7 @@ def write_sql_to_files():
 
 
 def write_graph_to_files():
-    client = ArangoClient(hosts='http://localhost:8529')
+    client = ArangoClient(hosts='http://arangodb-cluster-int:8529')
     sys_db = client.db('_system', username='root', password='')
 
     if not sys_db.has_database('btc_blockchain'):

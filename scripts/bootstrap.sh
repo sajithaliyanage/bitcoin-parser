@@ -19,7 +19,7 @@ if [ $BITCOIND_STATUS -ne 0 ]; then
   fi
 fi
 
-#psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" --user=gpadmin -f blockstack_schema.sql
+psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" --user=gpadmin -f blockstack_schema.sql
 
 export last_block=0
 while sleep 1; do
@@ -30,11 +30,11 @@ while sleep 1; do
         --provider-uri $PROVIDER_URI --chain bitcoin --blocks-output blocks.json --transactions-output transactions.json && \
         bitcoinetl enrich_transactions --provider-uri $PROVIDER_URI --transactions-input transactions.json \
         --transactions-output enriched_transactions.json  && \
-        python3 chain_formatter.py && \
-        #psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d blockstack --user=gpadmin -c "\\COPY btc_block(height, hash, block_time, tx_count) FROM blocks_sql.csv CSV DELIMITER E','"
-        #psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d blockstack --user=gpadmin -c "\\COPY btc_transaction(hash, block_number, index, fee, input_value, output_value, is_coinbase, input_count, output_count) FROM tx_sql.csv CSV DELIMITER E','"
-        #psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d blockstack --user=gpadmin -c "\\COPY btc_input_address(tx_hash, address, address_type, tx_value) FROM in_addr_sql.csv CSV DELIMITER E','"
-        #psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d blockstack --user=gpadmin -c "\\COPY btc_output_address(tx_hash, address, address_type, tx_value) FROM out_addr_sql.csv CSV DELIMITER E','"
+        python3 process_blockchain.py && \
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_block(height, hash, block_time, tx_count) FROM blocks_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_transaction(hash, block_number, index, fee, input_value, output_value, is_coinbase, input_count, output_count) FROM tx_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_input(tx_hash, address, address_type, tx_value) FROM in_addr_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_output(tx_hash, address, address_type, tx_value) FROM out_addr_sql.csv CSV DELIMITER E','"
         purge_data
         export last_block=$((last_block+100))
     fi

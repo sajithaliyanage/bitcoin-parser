@@ -21,6 +21,7 @@ COPY scripts/docker-entrypoint.sh /entrypoint.sh
 COPY scripts/bootstrap.sh /bootstrap.sh
 COPY scripts/start_bitcoind.sh /start_bitcoind.sh
 COPY scripts/process_blockchain.py /process_blockchain.py
+COPY scripts/blockstack_schema.sql /blockstack_schema.sql
 
 RUN pip3 install bitcoin-etl
 
@@ -28,6 +29,7 @@ RUN chmod 755 /entrypoint.sh
 RUN chmod 755 /bootstrap.sh
 RUN chmod 755 /start_bitcoind.sh
 RUN chmod 755 /process_blockchain.py
+RUN chmod 755 /blockstack_schema.sql
 
 EXPOSE 8332 8333 18332 18333 18443 18444
 

@@ -5,6 +5,8 @@ metadata:
 spec:
   mode: Cluster
   environment: Production
+  tls:
+    caSecretName: None
   auth:
     jwtSecretName: None
   agents:
