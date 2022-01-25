@@ -43,16 +43,6 @@ spec:
           env:
             - name: MOUNT_PATH
               value: {{ .Values.bitcoin.image.volume.mountPath }}
-            - name: RABBITMQ_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.bitcoin.rabbitmq.token }}
-                  key: token
-            - name: RABBITMQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.bitcoin.rabbitmq.password }}
-                  key: password
 ---
 apiVersion: v1
 kind: Service

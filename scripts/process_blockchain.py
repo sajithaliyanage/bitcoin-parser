@@ -222,7 +222,7 @@ def write_graph_to_files():
     else:
         edges = blockchain.edge_collection("edges")
 
-    print("start adding blocks - ", len(block_graph_buffer))
+    print("[ArangoDB] start adding blocks - ", len(block_graph_buffer))
     try:
         chunks = split_list_as_chunks(block_graph_buffer)
         for chunk in chunks:
@@ -230,7 +230,7 @@ def write_graph_to_files():
     except:
         pass
 
-    print("start adding tx - ", len(tx_buffer))
+    print("[ArangoDB] start adding tx - ", len(tx_buffer))
     try:
         chunks = split_list_as_chunks(tx_buffer)
         for chunk in chunks:
@@ -238,7 +238,7 @@ def write_graph_to_files():
     except:
         pass
 
-    print("start adding addresses - ", len(address_buffer))
+    print("[ArangoDB] start adding addresses - ", len(address_buffer))
     try:
         chunks = split_list_as_chunks(address_buffer)
         for chunk in chunks:
@@ -246,7 +246,7 @@ def write_graph_to_files():
     except:
         pass
 
-    print("start adding edges - ", len(edge_buffer))
+    print("[ArangoDB] start adding edges - ", len(edge_buffer))
     try:
         chunks = split_list_as_chunks(edge_buffer)
         for chunk in chunks:
