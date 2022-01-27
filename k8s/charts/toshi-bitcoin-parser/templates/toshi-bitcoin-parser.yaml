@@ -60,11 +60,11 @@ spec:
             - name: MOUNT_PATH
               value: {{ .Values.bitcoin.image.volume.mountPath }}
             - name: START_BLOCK_HEIGHT
-              value: {{ .Values.bitcoin.parser.startBlockHeight }}
+              value: {{ .Values.bitcoin.parser.startBlockHeight | quote }}
             - name: END_BLOCK_HEIGHT
-              value: {{ .Values.bitcoin.parser.endBlockHeight }}
+              value: {{ .Values.bitcoin.parser.endBlockHeight | quote }}
             - name: BATCH_SIZE
-              value: {{ .Values.bitcoin.parser.batchSize }}
+              value: {{ .Values.bitcoin.parser.batchSize | quote }}
 ---
 apiVersion: v1
 kind: Service

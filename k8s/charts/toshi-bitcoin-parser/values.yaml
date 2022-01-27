@@ -15,9 +15,9 @@ bitcoin:
     port: 8332
     targetPort: 8332
   parser:
-    startBlockHeight: 0
-    endBlockHeight: 100000
-    batchSize: 100000
+    startBlockHeight: "0"
+    endBlockHeight: "100000"
+    batchSize: "100000"
   # rabbitmq:
   #   token: rabbitmq-token-sqlzz
   #   password: rabbitmq
