@@ -18,16 +18,25 @@ spec:
         tier: bitcoin
     spec:
       {{- if and .Values.bitcoin.nodeSelector.key .Values.bitcoin.nodeSelector.value }}
+      # affinity:
+      #   nodeAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #       - weight: 1
+      #         preference:
+      #           matchExpressions:
+      #             - key: {{ .Values.bitcoin.nodeSelector.key }}
+      #               operator: In
+      #               values:
+      #                 - {{ .Values.bitcoin.nodeSelector.value }}
       affinity:
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 1
-              preference:
-                matchExpressions:
-                  - key: {{ .Values.bitcoin.nodeSelector.key }}
-                    operator: In
-                    values:
-                      - {{ .Values.bitcoin.nodeSelector.value }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: disktype
+                operator: In
+                values:
+                - masterDisk                
       {{- end }}
       volumes:
         - name: toshi-bitcoin-parser-pv-storage
@@ -36,6 +45,13 @@ spec:
       containers:
         - name: bitcoin-core
           image: "{{ .Values.bitcoin.image.name }}:{{ .Values.bitcoin.image.tag }}"
+          resources:
+            requests:
+              memory: "40G"
+              cpu: 8
+            limits:
+              memory: "2G"
+              cpu: 4
           imagePullPolicy: {{ .Values.bitcoin.image.pullPolicy }}
           volumeMounts:
             - name: toshi-bitcoin-parser-pv-storage
@@ -43,6 +59,12 @@ spec:
           env:
             - name: MOUNT_PATH
               value: {{ .Values.bitcoin.image.volume.mountPath }}
+            - name: START_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.startBlockHeight }}
+            - name: END_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.endBlockHeight }}
+            - name: BATCH_SIZE
+              value: {{ .Values.bitcoin.parser.batchSize }}
 ---
 apiVersion: v1
 kind: Service

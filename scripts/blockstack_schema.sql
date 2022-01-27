@@ -3,11 +3,11 @@ CREATE DATABASE btc_blockchain;
 \c  btc_blockchain;
 
 CREATE TABLE btc_transaction (
-	id integer SERIAL,
+	id SERIAL primary key NOT NULL,
 	fee bigint,
 	block_number integer,
 	input_value bigint DEFAULT '0',
-	index integer SERIAL,
+	index integer,
 	is_coinbase boolean,
 	output_count integer,
 	output_value bigint,
@@ -16,7 +16,7 @@ CREATE TABLE btc_transaction (
 );
 
 CREATE TABLE btc_block (
-	id integer SERIAL,
+	id SERIAL primary key NOT NULL,
     height integer,
 	hash varchar(65),
     block_time varchar(16),
@@ -24,7 +24,7 @@ CREATE TABLE btc_block (
 );
 
 CREATE TABLE btc_tx_input (
-	id integer SERIAL,
+	id SERIAL primary key NOT NULL,
 	tx_hash varchar(65),
 	index integer,
 	required_signatures integer,
@@ -36,7 +36,7 @@ CREATE TABLE btc_tx_input (
 );
 
 CREATE TABLE btc_tx_output (
-	id integer SERIAL,
+	id SERIAL primary key NOT NULL,
 	tx_hash varchar(65),
 	index integer,
 	required_signatures integer,

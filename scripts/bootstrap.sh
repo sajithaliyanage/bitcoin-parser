@@ -21,25 +21,44 @@ fi
 
 psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" --user=gpadmin -f blockstack_schema.sql
 
-export last_block=0
+export start_block_height=${START_BLOCK_HEIGHT}
+export end_block_height=${END_BLOCK_HEIGHT}
+export parse_chunk=${BATCH_SIZE}
 while sleep 1; do
     block_count="$(bitcoin-cli -rpcuser=user -rpcpassword=password -rpcport=8332 getblockcount)"
-    echo "Current block height - " + block_count
-    if (( block_count > ((last_block+105)) )); then
-        echo "Processing start for block range $((last_block+1))-$((last_block+100))"
-        bitcoinetl export_blocks_and_transactions --start-block "$((last_block+1))" --end-block "$((last_block+100))" \
+    echo "Current block height - $((block_count))"
+    if ((block_count > start_block_height+parse_chunk+5)) && ((end_block_height >= start_block_height+parse_chunk)); then
+        echo "Processing for block range $((start_block_height+1))-$((start_block_height+parse_chunk))"
+        bitcoinetl export_blocks_and_transactions --start-block "$((start_block_height+1))" --end-block "$((start_block_height+parse_chunk))" \
         --provider-uri $PROVIDER_URI --chain bitcoin --blocks-output blocks.json --transactions-output transactions.json && \
         bitcoinetl enrich_transactions --provider-uri $PROVIDER_URI --transactions-input transactions.json \
         --transactions-output enriched_transactions.json  && \
-        echo "Blocks exported from bitcoin-etl range $((last_block+1))-$((last_block+100))"
+        echo "Blocks exported from bitcoin-etl range $((start_block_height+1))-$((start_block_height+parse_chunk))"
         python3 process_blockchain.py && \
         psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_block(height, hash, block_time, tx_count) FROM blocks_sql.csv CSV DELIMITER E','"
         psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_transaction(hash, block_number, index, fee, input_value, output_value, is_coinbase, input_count, output_count) FROM tx_sql.csv CSV DELIMITER E','"
         psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_input(tx_hash, address, address_type, tx_value) FROM in_addr_sql.csv CSV DELIMITER E','"
         psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_output(tx_hash, address, address_type, tx_value) FROM out_addr_sql.csv CSV DELIMITER E','"
-        echo "Data successfully uploaded to GreenplumpDB from block range $((last_block+1))-$((last_block+100))"
+        echo "Data successfully uploaded to GreenplumpDB from block range $((start_block_height+1))-$((start_block_height+parse_chunk))"
         purge_data
-        export last_block=$((last_block+100))
+        export start_block_height=$((start_block_height+parse_chunk))
+    elif ((block_count > start_block_height+parse_chunk+5)) && ((end_block_height < start_block_height+parse_chunk)) && ((end_block_height > start_block_height)); then
+        echo "Processing for block range $((start_block_height+1))-$((end_block_height))"
+        bitcoinetl export_blocks_and_transactions --start-block "$((start_block_height+1))" --end-block "$((end_block_height))" \
+        --provider-uri $PROVIDER_URI --chain bitcoin --blocks-output blocks.json --transactions-output transactions.json && \
+        bitcoinetl enrich_transactions --provider-uri $PROVIDER_URI --transactions-input transactions.json \
+        --transactions-output enriched_transactions.json  && \
+        echo "Blocks exported from bitcoin-etl range $((start_block_height+1))-$((end_block_height))"
+        python3 process_blockchain.py && \
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_block(height, hash, block_time, tx_count) FROM blocks_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_transaction(hash, block_number, index, fee, input_value, output_value, is_coinbase, input_count, output_count) FROM tx_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_input(tx_hash, address, address_type, tx_value) FROM in_addr_sql.csv CSV DELIMITER E','"
+        psql -h "$GREENPLUM_SERVICE_HOST" -p "$GREENPLUM_SERVICE_PORT" -d btc_blockchain --user=gpadmin -c "\\COPY btc_tx_output(tx_hash, address, address_type, tx_value) FROM out_addr_sql.csv CSV DELIMITER E','"
+        echo "Data successfully uploaded to GreenplumpDB from block range $((start_block_height+1))-$((end_block_height))"
+        purge_data
+        export start_block_height=$((end_block_height))
+    elif ((end_block_height == start_block_height)); then
+        echo "Parsing completed for the given upper bound block height - $((end_block_height))"
     fi
 done
 

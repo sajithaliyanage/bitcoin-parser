@@ -184,7 +184,7 @@ def write_sql_to_files():
 
 
 def write_graph_to_files():
-    client = ArangoClient(hosts='http://arangodb-cluster-int:8529')
+    client = ArangoClient(hosts='http://arangodb-cluster:8529')
     sys_db = client.db('_system', username='root', password='')
 
     if not sys_db.has_database('btc_blockchain'):
@@ -220,7 +220,7 @@ def write_graph_to_files():
             from_vertex_collections=["btc_blocks", "btc_transactions", "btc_addresses"],
             to_vertex_collections=["btc_blocks", "btc_transactions", "btc_addresses"])
     else:
-        edges = blockchain.edge_collection("edges")
+        edges = blockchain.edge_collection("btc_edges")
 
     print("[ArangoDB] start adding blocks - ", len(block_graph_buffer))
     try:

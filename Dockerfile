@@ -1,12 +1,12 @@
-FROM ubuntu:18.04
+FROM python:3.10
 
 LABEL maintainer.0="CIBR-QCRI Team"
 
 RUN useradd -r bitcoin \
   && apt-get update -y \
-  && apt-get install -y curl gnupg gosu python3-pip\
+  && apt-get install -y curl gnupg gosu python3-pip postgresql-client\
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 ENV BITCOIN_VERSION=0.18.1
 ENV BITCOIN_DATA=/mnt/data/bitcoin
@@ -23,7 +23,7 @@ COPY scripts/start_bitcoind.sh /start_bitcoind.sh
 COPY scripts/process_blockchain.py /process_blockchain.py
 COPY scripts/blockstack_schema.sql /blockstack_schema.sql
 
-RUN pip3 install bitcoin-etl
+RUN pip3 install bitcoin-etl python-arango
 
 RUN chmod 755 /entrypoint.sh
 RUN chmod 755 /bootstrap.sh
@@ -31,7 +31,7 @@ RUN chmod 755 /start_bitcoind.sh
 RUN chmod 755 /process_blockchain.py
 RUN chmod 755 /blockstack_schema.sql
 
-EXPOSE 8332 8333 18332 18333 18443 18444
+EXPOSE 8332 8333 18332 18333 18443 18444 5432 8529
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ./bootstrap.sh
