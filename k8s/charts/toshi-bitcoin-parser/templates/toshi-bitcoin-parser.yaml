@@ -47,11 +47,11 @@ spec:
           image: "{{ .Values.bitcoin.image.name }}:{{ .Values.bitcoin.image.tag }}"
           resources:
             requests:
-              memory: "40G"
+              memory: "35Gi"
               cpu: 8
             limits:
-              memory: "2G"
-              cpu: 4
+              memory: "95Gi"
+              cpu: 12  
           imagePullPolicy: {{ .Values.bitcoin.image.pullPolicy }}
           volumeMounts:
             - name: toshi-bitcoin-parser-pv-storage

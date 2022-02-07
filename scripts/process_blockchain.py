@@ -2,6 +2,7 @@ import json
 import csv
 from arango import ArangoClient
 from urllib3.connectionpool import xrange
+import gc
 
 TYPE_INPUTS_TO = 'inputs_to'
 TYPE_OUTPUTS_TO = 'outputs_to'
@@ -181,6 +182,12 @@ def write_sql_to_files():
     with open('out_addr_sql.csv', 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(out_address_buffer)
+    
+    del block_buffer[:]
+    del transaction_buffer[:]
+    del in_address_buffer[:]
+    del out_address_buffer[:]
+    gc.collect()
 
 
 def write_graph_to_files():
@@ -225,40 +232,44 @@ def write_graph_to_files():
     print("[ArangoDB] start adding blocks - ", len(block_graph_buffer))
     try:
         chunks = split_list_as_chunks(block_graph_buffer)
+        del block_graph_buffer[:]
         for chunk in chunks:
             blocks.insert_many(chunk)
+        chunks.clear()    
     except:
         pass
 
     print("[ArangoDB] start adding tx - ", len(tx_buffer))
     try:
         chunks = split_list_as_chunks(tx_buffer)
+        del tx_buffer[:]
         for chunk in chunks:
             transactions.insert_many(chunk)
+        chunks.clear()    
     except:
         pass
 
     print("[ArangoDB] start adding addresses - ", len(address_buffer))
     try:
         chunks = split_list_as_chunks(address_buffer)
+        del address_buffer[:]
         for chunk in chunks:
             addresses.insert_many(chunk)
+        chunks.clear()    
     except:
         pass
 
     print("[ArangoDB] start adding edges - ", len(edge_buffer))
     try:
         chunks = split_list_as_chunks(edge_buffer)
+        del edge_buffer[:]
         for chunk in chunks:
             edges.insert_many(chunk)
+        chunks.clear()
     except:
         pass
 
-
-    block_graph_buffer.clear()
-    tx_buffer.clear()
-    edge_buffer.clear()
-    address_buffer.clear()
+    gc.collect()
 
 
 def split_list_as_chunks(data_list):
