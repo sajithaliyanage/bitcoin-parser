@@ -1,0 +1,20 @@
+services:
+  bitcoind:
+    image: "sajithagimash/bitcoin-daemon:1.0.0"
+    ports:
+      - 8332:8332  
+    expose:
+      - 8332
+    volumes:
+      - '/Users/sajithaliyanage/Desktop/test:/mnt/data/bitcoin'
+
+  toshi:
+    image: "sajithagimash/toshi-bitcoin-parser:1.0.0"
+    environment:
+      BITCOIN_DAEMON_HOST: bitcoind
+      START_BLOCK_HEIGHT: 0
+      END_BLOCK_HEIGHT: 1030
+      BATCH_SIZE: 100
+    volumes:
+      - '/Users/sajithaliyanage/Desktop/temp:/blockchain-parser'
+      

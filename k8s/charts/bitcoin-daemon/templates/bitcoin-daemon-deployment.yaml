@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: toshi-bitcoin-parser-deployment
+  name: bitcoin-daemon-deployment
   labels:
-    app: toshi-bitcoin-parser
+    app: bitcoin-daemon
     tier: bitcoin
 spec:
   replicas:
   selector:
     matchLabels:
-      app: toshi-bitcoin-parser
+      app: bitcoin-daemon
       tier: bitcoin
   template:
     metadata:
       labels:
-        app: toshi-bitcoin-parser
+        app: bitcoin-daemon
         tier: bitcoin
     spec:
       {{- if and .Values.bitcoin.nodeSelector.key .Values.bitcoin.nodeSelector.value }}
@@ -29,22 +29,22 @@ spec:
                 - {{ .Values.bitcoin.nodeSelector.value }}
       {{- end }}
       volumes:
-        - name: toshi-bitcoin-parser-pv-storage
+        - name: bitcoin-daemon-pv-storage
           persistentVolumeClaim:
-            claimName: toshi-bitcoin-parser-pv-claim
+            claimName: bitcoin-daemon-pv-claim
       containers:
         - name: bitcoin-core
           image: "{{ .Values.bitcoin.image.name }}:{{ .Values.bitcoin.image.tag }}"
           resources:
             requests:
-              memory: "35Gi"
-              cpu: 8
+              memory: "10Gi"
+              cpu: 2
             limits:
-              memory: "95Gi"
-              cpu: 12  
+              memory: "25Gi"
+              cpu: 8  
           imagePullPolicy: {{ .Values.bitcoin.image.pullPolicy }}
           volumeMounts:
-            - name: toshi-bitcoin-parser-pv-storage
+            - name: bitcoin-daemon-pv-storage
               mountPath: {{ .Values.bitcoin.image.volume.mountPath }}
           env:
             - name: MOUNT_PATH
@@ -55,24 +55,16 @@ spec:
               value: {{ .Values.bitcoin.parser.endBlockHeight | quote }}
             - name: BATCH_SIZE
               value: {{ .Values.bitcoin.parser.batchSize | quote }}
-            - name: BITCOIN_DAEMON_HOST
-              value: {{ .Values.bitcoin.parser.bitcoinDaemonHost | quote }}
-            - name: BITCOIN_DAEMON_USERNAME
-              value: {{ .Values.bitcoin.parser.bitcoinDaemonUsername | quote }}
-            - name: BITCOIN_DAEMON_PASSWORD
-              value: {{ .Values.bitcoin.parser.bitcoinDaemonPassword | quote }}
-            - name: BITCOIN_DAEMON_PORT
-              value: {{ .Values.bitcoin.parser.bitcoinDaemonPort | quote }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: toshi-bitcoin-parser-service
+  name: bitcoin-daemon-service
   labels:
     tier: bitcoin
 spec:
   selector:
-    app: toshi-bitcoin-parser-app
+    app: bitcoin-daemon-app
     tier: bitcoin
   ports:
     - targetPort: {{ .Values.bitcoin.service.targetPort }}

@@ -9,7 +9,10 @@ RUN useradd -r bitcoin \
   && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 ENV BITCOIN_VERSION=0.18.1
-ENV BITCOIN_DATA=/mnt/data/bitcoin
+ENV BITCOIN_DAEMON_HOST=127.0.0.1
+ENV BITCOIN_DAEMON_USERNAME=user
+ENV BITCOIN_DAEMON_PASSWORD=password
+ENV BITCOIN_DAEMON_PORT=8332
 ENV PATH=/opt/bitcoin-${BITCOIN_VERSION}/bin:$PATH
 
 RUN set -ex \
@@ -17,21 +20,18 @@ RUN set -ex \
   && tar -xzf *.tar.gz -C /opt \
   && rm *.tar.gz
 
-COPY scripts/docker-entrypoint.sh /entrypoint.sh
-COPY scripts/bootstrap.sh /bootstrap.sh
-COPY scripts/start_bitcoind.sh /start_bitcoind.sh
-COPY scripts/process_blockchain.py /process_blockchain.py
-COPY scripts/blockstack_schema.sql /blockstack_schema.sql
+RUN mkdir /blockchain-parser
+WORKDIR "/blockchain-parser"
+COPY bootstrap.sh /bootstrap.sh
+COPY process_blockchain.py /process_blockchain.py
+COPY btc_blockchain_schema.sql /btc_blockchain_schema.sql
 
 RUN pip3 install bitcoin-etl python-arango
 
-RUN chmod 755 /entrypoint.sh
 RUN chmod 755 /bootstrap.sh
-RUN chmod 755 /start_bitcoind.sh
 RUN chmod 755 /process_blockchain.py
-RUN chmod 755 /blockstack_schema.sql
+RUN chmod 755 /btc_blockchain_schema.sql
 
 EXPOSE 8332 8333 18332 18333 18443 18444 5432 8529
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ./bootstrap.sh
+ENTRYPOINT ["/bootstrap.sh"]
