@@ -44,3 +44,24 @@ CREATE TABLE btc_tx_output (
 	tx_value bigint,
 	address varchar(65)
 );
+
+CREATE TABLE btc_address_cluster (
+	id SERIAL primary key NOT NULL,
+	cluster_id varchar(65),
+	address varchar(65)
+);
+
+CREATE TABLE btc_wallet (
+	id SERIAL primary key NOT NULL,
+	cluster_id varchar(65),
+	num_input_tx integer,
+	num_output_tx integer,
+	total_spent bigint,
+	total_received bigint
+);
+
+CREATE TABLE btc_address_label(
+	id SERIAL primary key NOT NULL,
+	cluster_id varchar(65),
+	label varchar(65)
+);

@@ -9,7 +9,7 @@ import csv
 gp_connection = None
 gp_cursor = None
 last_processed_input_id = 0
-processing_row_count = 5000000
+processing_row_count = 10000000
 last_processed_tx_hash = None
 last_processed_tx_wallet_id = None
 
@@ -17,6 +17,7 @@ last_processed_tx_wallet_id = None
 address_wallet_map = dict()
 wallet_to_wallet_map = dict()
 wallet_final_state_map = dict()
+wallet_temp_map = dict()
 
 def connects_to_greenplum():
     try:
@@ -115,6 +116,11 @@ def multi_address__clustering_heuristic():
             # print("Add to the address_wallet_map since wallet_id not in map")
         else:
             # print("Found in address_wallet_map")
+            start_wallet_id = wallet_id
+            temp_final_wallet_id = wallet_temp_map.get(start_wallet_id)
+            if temp_final_wallet_id is not None:
+                wallet_id = temp_final_wallet_id
+            
             while True:
                 # print("current wallet_id - " ,wallet_id)
                 traverse_wallet_id = wallet_to_wallet_map.get(wallet_id)
@@ -123,17 +129,21 @@ def multi_address__clustering_heuristic():
                     if wallet_id != generated_wallet_id:
                         wallet_to_wallet_map[wallet_id] = generated_wallet_id
                         # print("Rule added to wallet_to_wallet_map " + wallet_id + " -> " + generated_wallet_id)
+                    
+                    if start_wallet_id != generated_wallet_id:
+                        wallet_temp_map[start_wallet_id] = generated_wallet_id
                     break
                 else:
                     # print("new value for wallet_id - ", traverse_wallet_id)
                     wallet_id = traverse_wallet_id
+                        
         
         # print("\n ------------------------- \n")
         last_processed_input_id = id
         count = count + 1
 
-        if count % 100 == 0:
-            print("Processed another 100 input address, total: ", count)
+        if count % 1000 == 0:
+            print("Processed another 1000 input address, total: ", count)
 
 
 def save_wallet_data():
@@ -141,7 +151,10 @@ def save_wallet_data():
         pickle.dump(address_wallet_map, f, pickle.HIGHEST_PROTOCOL)
 
     with open('wallet_to_wallet_map.pickle', 'wb') as f:
-        pickle.dump(wallet_to_wallet_map, f, pickle.HIGHEST_PROTOCOL) 
+        pickle.dump(wallet_to_wallet_map, f, pickle.HIGHEST_PROTOCOL)
+
+    with open('wallet_temp_map.pickle', 'wb') as f:
+        pickle.dump(wallet_temp_map, f, pickle.HIGHEST_PROTOCOL) 
     
     last_processed_input_data_map = dict()
     last_processed_input_data_map['last_id'] = last_processed_input_id
@@ -176,6 +189,7 @@ def load_last_processed_input_metadata():
 
 
 def post_process_wallet_data():
+    count = 0
     for key,value in address_wallet_map.items():
         wallet_id = value
         while True:
@@ -183,7 +197,10 @@ def post_process_wallet_data():
             cached_wallet_final_id = wallet_final_state_map.get(wallet_id)
             if cached_wallet_final_id is not None:
                 wallet_id = cached_wallet_final_id
-                break
+
+            temp_final_wallet_id = wallet_temp_map.get(wallet_id)
+            if temp_final_wallet_id is not None:
+                wallet_id = temp_final_wallet_id
 
             # check final traversal wallet_id for the given wallet_id
             traverse_wallet_id = wallet_to_wallet_map.get(wallet_id)
@@ -195,6 +212,10 @@ def post_process_wallet_data():
         
         # update new wallet_id
         address_wallet_map[key] = wallet_id
+        count = count + 1
+
+        if count % 1000 == 0:
+            print("Processed another 1000 input address, total: ", count)
 
     print("Multi address clustering - wallet mapping completed successfully")
 
@@ -221,11 +242,10 @@ def clear_data():
     address_wallet_map.clear()
     wallet_to_wallet_map.clear()
     wallet_final_state_map.clear()
+    wallet_temp_map.clear()
 
 
 def main():
-    if not gp_connection or not gp_cursor:
-        connects_to_greenplum()
     
     # read previous run wallet metadata
     global last_processed_input_id
@@ -243,21 +263,34 @@ def main():
         wallet_to_wallet_map = load_wallet_data('wallet_to_wallet_map')
         print('Loaded {0} wallet_to_wallet_map entries to the memory'.format(len(wallet_to_wallet_map)))
 
+        global wallet_temp_map
+        wallet_temp_map = load_wallet_data('wallet_temp_map')
+        print('Loaded {0} wallet_temp_map entries to the memory'.format(len(wallet_temp_map)))
+
 
     if len(sys.argv) >= 2 and sys.argv[1] == 'wallet_parser':
+        global wallet_final_state_map 
+        wallet_final_state_map = load_wallet_data('wallet_final_state_map')
+        print('Loaded {0} wallet_final_state_map entries to the memory'.format(len(wallet_final_state_map)))
+
         # process wallet mapping and identify final wallet_id for the addresses
         print("Script started to create cluster from loaded input address id range: {} to {}".format(last_processed_input_id, last_processed_input_id + processing_row_count))
         post_process_wallet_data()
+
+        with open('wallet_final_state_map.pickle', 'wb') as f:
+            pickle.dump(wallet_final_state_map, f, pickle.HIGHEST_PROTOCOL)
     else:
+        if not gp_connection or not gp_cursor:
+            connects_to_greenplum()
         # process clustering
         print("Script started to process input address id range: {} to {}".format(last_processed_input_id, last_processed_input_id + processing_row_count))
         multi_address__clustering_heuristic()
 
+        # close arangodb connection
+        close_gp_connection()
+
     # save wallet maps in file system
     save_wallet_data()
-
-    # close arangodb connection
-    close_gp_connection()
 
     # clear all loaded in-memory data
     clear_data()
