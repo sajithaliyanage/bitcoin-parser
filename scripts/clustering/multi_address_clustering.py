@@ -142,8 +142,8 @@ def multi_address__clustering_heuristic():
         last_processed_input_id = id
         count = count + 1
 
-        if count % 1000 == 0:
-            print("Processed another 1000 input address, total: ", count)
+        if count % 100000 == 0:
+            print("Processed another 100000 input address, total: ", count)
 
 
 def save_wallet_data():
@@ -214,8 +214,8 @@ def post_process_wallet_data():
         address_wallet_map[key] = wallet_id
         count = count + 1
 
-        if count % 1000 == 0:
-            print("Processed another 1000 input address, total: ", count)
+        if count % 100000 == 0:
+            print("Processed another 100000 input address, total: ", count)
 
     print("Multi address clustering - wallet mapping completed successfully")
 

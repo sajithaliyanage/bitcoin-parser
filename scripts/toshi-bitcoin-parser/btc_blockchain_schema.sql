@@ -54,14 +54,26 @@ CREATE TABLE btc_address_cluster (
 CREATE TABLE btc_wallet (
 	id SERIAL primary key NOT NULL,
 	cluster_id varchar(65),
-	num_input_tx integer,
-	num_output_tx integer,
+	num_address integer,
+	num_tx integer,
 	total_spent bigint,
-	total_received bigint
+	total_received bigint,
+	risk_score float
 );
 
 CREATE TABLE btc_address_label(
 	id SERIAL primary key NOT NULL,
-	cluster_id varchar(65),
-	label varchar(65)
+	address varchar(65),
+	label varchar(65),
+	source varchar(65),
+	category varchar(65)
+);
+
+CREATE TABLE btc_wallet_money_flow(
+	id SERIAL primary key NOT NULL,
+	wallet_id varchar(65),
+	category varchar(65),
+	total_amount varchar(65),
+	num_address varchar(65),
+	flow_type varchar(10)
 );
