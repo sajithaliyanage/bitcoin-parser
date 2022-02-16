@@ -1,0 +1,27 @@
+bitcoin:
+  image:
+    name: "sajithagimash/toshi-bitcoin-parser"
+    tag: "1.0.0"
+    pullPolicy: Always
+    volume:
+      mountPath: "/blockchain-parser"
+  storage:
+    className: "managed-nfs-storage"
+    size: "100Gi"
+  nodeSelector:
+    key: "kubernetes.io/hostname"
+    value: "cybubcibrdev001"
+  service:
+    port: 8332
+    targetPort: 8332
+  parser:
+    startBlockHeight: "0"
+    endBlockHeight: "100000"
+    batchSize: "100000"
+    bitcoinDaemonHost: "bitcoin-daemon-service"
+    bitcoinDaemonUsername: "user"
+    bitcoinDaemonPassword: "password"
+    bitcoinDaemonPort: "8332"
+  # rabbitmq:
+  #   token: rabbitmq-token-sqlzz
+  #   password: rabbitmq

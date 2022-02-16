@@ -1,0 +1,28 @@
+{{- $segmentCPUMaster  := (toString .Values.greenplum.segmentCPUMaster) -}}
+{{- $segmentMemoryMaster  := .Values.greenplum.segmentMemoryMaster -}}
+{{- $segmentVolumeSize  := .Values.greenplum.segmentVolumeSize -}}
+{{- $primarySegmentCount  := .Values.greenplum.primarySegmentCount -}}
+{{- $segmentMemorySlave  := .Values.greenplum.segmentMemorySlave -}}
+{{- $segmentCPUSlave  := (toString .Values.greenplum.segmentCPUSlave) -}}
+---
+apiVersion: "greenplum.pivotal.io/v1"
+kind: "GreenplumCluster"
+metadata:
+  name: my-greenplum
+spec:
+  masterAndStandby:
+    hostBasedAuthentication: |
+      host   all   all   0.0.0.0/0   trust
+      host   all   all   ::0/0       trust
+    memory: {{ $segmentMemoryMaster }}
+    # cpu: {{ $segmentCPUMaster }}
+    storageClassName: managed-nfs-storage
+    storage: {{ $segmentVolumeSize }}
+    workerSelector: {}
+  segments:
+    primarySegmentCount: {{ $primarySegmentCount }}
+    memory: {{ $segmentMemorySlave }}
+    # cpu: {{ $segmentCPUSlave }}
+    storageClassName: managed-nfs-storage
+    storage: {{ $segmentVolumeSize }}
+    workerSelector: {}

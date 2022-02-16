@@ -1,0 +1,21 @@
+apiVersion: "database.arangodb.com/v1"
+kind: "ArangoDeployment"
+metadata:
+  name: "arangodb-cluster"
+spec:
+  mode: Cluster
+  environment: Production
+  tls:
+    caSecretName: None
+  auth:
+    jwtSecretName: None
+  agents:
+    storageClassName: managed-nfs-storage
+  dbservers:
+    storageClassName: managed-nfs-storage
+  image: "arangodb/arangodb:3.8.4"
+  coordinators:
+    probes:
+      readinessProbeDisabled: true
+
+  

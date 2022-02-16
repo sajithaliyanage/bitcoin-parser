@@ -20,14 +20,13 @@ spec:
       {{- if and .Values.bitcoin.nodeSelector.key .Values.bitcoin.nodeSelector.value }}
       affinity:
         nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 1
-              preference:
-                matchExpressions:
-                  - key: {{ .Values.bitcoin.nodeSelector.key }}
-                    operator: In
-                    values:
-                      - {{ .Values.bitcoin.nodeSelector.value }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms
+            - matchExpressions:
+              - key: {{ .Values.bitcoin.nodeSelector.key }}
+                operator: In
+                values:
+                - {{ .Values.bitcoin.nodeSelector.value }}
       {{- end }}
       volumes:
         - name: toshi-bitcoin-parser-pv-storage
@@ -36,6 +35,13 @@ spec:
       containers:
         - name: bitcoin-core
           image: "{{ .Values.bitcoin.image.name }}:{{ .Values.bitcoin.image.tag }}"
+          resources:
+            requests:
+              memory: "35Gi"
+              cpu: 8
+            limits:
+              memory: "95Gi"
+              cpu: 12  
           imagePullPolicy: {{ .Values.bitcoin.image.pullPolicy }}
           volumeMounts:
             - name: toshi-bitcoin-parser-pv-storage
@@ -43,16 +49,20 @@ spec:
           env:
             - name: MOUNT_PATH
               value: {{ .Values.bitcoin.image.volume.mountPath }}
-            - name: RABBITMQ_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.bitcoin.rabbitmq.token }}
-                  key: token
-            - name: RABBITMQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.bitcoin.rabbitmq.password }}
-                  key: password
+            - name: START_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.startBlockHeight | quote }}
+            - name: END_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.endBlockHeight | quote }}
+            - name: BATCH_SIZE
+              value: {{ .Values.bitcoin.parser.batchSize | quote }}
+            - name: BITCOIN_DAEMON_HOST
+              value: {{ .Values.bitcoin.parser.bitcoinDaemonHost | quote }}
+            - name: BITCOIN_DAEMON_USERNAME
+              value: {{ .Values.bitcoin.parser.bitcoinDaemonUsername | quote }}
+            - name: BITCOIN_DAEMON_PASSWORD
+              value: {{ .Values.bitcoin.parser.bitcoinDaemonPassword | quote }}
+            - name: BITCOIN_DAEMON_PORT
+              value: {{ .Values.bitcoin.parser.bitcoinDaemonPort | quote }}
 ---
 apiVersion: v1
 kind: Service

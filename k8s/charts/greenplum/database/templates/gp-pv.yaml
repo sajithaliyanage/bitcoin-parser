@@ -1,0 +1,19 @@
+# {{- $segmentVolumeSize  := .Values.greenplum.segmentVolumeSize -}}
+# {{ range $k, $v := until (atoi .Values.greenplum.numVolumes) }}
+# ---
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: greenplum-local-pv-{{ $v }}
+#   labels:
+#     type: local
+# spec:
+#   storageClassName: managed-nfs-storage
+#   accessModes:
+#     - ReadWriteOnce
+#   persistentVolumeReclaimPolicy: Retain
+#   capacity:
+#     storage: {{ $segmentVolumeSize }}
+#   hostPath:
+#     path: /mnt/data-{{ $v }}
+# {{ end }}

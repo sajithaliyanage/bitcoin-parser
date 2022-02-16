@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bitcoin-daemon-deployment
+  labels:
+    app: bitcoin-daemon
+    tier: bitcoin
+spec:
+  replicas:
+  selector:
+    matchLabels:
+      app: bitcoin-daemon
+      tier: bitcoin
+  template:
+    metadata:
+      labels:
+        app: bitcoin-daemon
+        tier: bitcoin
+    spec:
+      {{- if and .Values.bitcoin.nodeSelector.key .Values.bitcoin.nodeSelector.value }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms
+            - matchExpressions:
+              - key: {{ .Values.bitcoin.nodeSelector.key }}
+                operator: In
+                values:
+                - {{ .Values.bitcoin.nodeSelector.value }}
+      {{- end }}
+      volumes:
+        - name: bitcoin-daemon-pv-storage
+          persistentVolumeClaim:
+            claimName: bitcoin-daemon-pv-claim
+      containers:
+        - name: bitcoin-core
+          image: "{{ .Values.bitcoin.image.name }}:{{ .Values.bitcoin.image.tag }}"
+          resources:
+            requests:
+              memory: "10Gi"
+              cpu: 2
+            limits:
+              memory: "25Gi"
+              cpu: 8  
+          imagePullPolicy: {{ .Values.bitcoin.image.pullPolicy }}
+          volumeMounts:
+            - name: bitcoin-daemon-pv-storage
+              mountPath: {{ .Values.bitcoin.image.volume.mountPath }}
+          env:
+            - name: MOUNT_PATH
+              value: {{ .Values.bitcoin.image.volume.mountPath }}
+            - name: START_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.startBlockHeight | quote }}
+            - name: END_BLOCK_HEIGHT
+              value: {{ .Values.bitcoin.parser.endBlockHeight | quote }}
+            - name: BATCH_SIZE
+              value: {{ .Values.bitcoin.parser.batchSize | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bitcoin-daemon-service
+  labels:
+    tier: bitcoin
+spec:
+  selector:
+    app: bitcoin-daemon-app
+    tier: bitcoin
+  ports:
+    - targetPort: {{ .Values.bitcoin.service.targetPort }}
+      port: {{ .Values.bitcoin.service.port }}
+      protocol: TCP
