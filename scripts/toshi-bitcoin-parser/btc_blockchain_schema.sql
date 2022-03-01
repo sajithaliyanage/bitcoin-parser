@@ -73,7 +73,7 @@ CREATE TABLE btc_wallet_money_flow(
 	id SERIAL primary key NOT NULL,
 	wallet_id varchar(65),
 	category varchar(65),
-	total_amount varchar(65),
-	num_address varchar(65),
+	total_amount bigint,
+	num_address integer,
 	flow_type varchar(10)
 );

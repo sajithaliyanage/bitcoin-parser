@@ -18,7 +18,7 @@ $$ language plpgsql;
 create or replace function create_wallets_money_flow()
 returns void
 as $$
-begin 
+begin
     DROP TABLE IF EXISTS btc_wallet_money_flow;
     CREATE TABLE btc_wallet_money_flow(
       id SERIAL primary key NOT NULL,
@@ -29,7 +29,7 @@ begin
       flow_type varchar(10)
     );
 end ;
-$$ language plpgsql;
+$$ language plpgsql
 
 
 create or replace function enrich_wallet_money_inflow()
