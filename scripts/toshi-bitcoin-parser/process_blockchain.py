@@ -1,8 +1,13 @@
 import json
+import time
 import csv
+import requests
 from arango import ArangoClient
 from urllib3.connectionpool import xrange
 import gc
+import pickle
+from pathlib import Path
+from datetime import date
 
 TYPE_INPUTS_TO = 'inputs_to'
 TYPE_OUTPUTS_TO = 'outputs_to'
@@ -14,6 +19,12 @@ TRANSACTION_COLLECTION = 'btc_transactions/{0}'
 ADDRESS_COLLECTION = 'btc_addresses/{0}'
 BLOCK_COLLECTION = 'btc_blocks/{0}'
 MAX_LIST_LIMIT = 100000
+COINDESK_START = '2010-07-18'
+COINDESK_END_DATE = '2022-03-31'
+
+block_timestamp_map = dict()
+usd_exchange_rates = dict()
+last_process_date = COINDESK_END_DATE
 
 # Data structures for sql data
 block_buffer = list()
@@ -26,6 +37,48 @@ block_graph_buffer = list()
 tx_buffer = list()
 edge_buffer = list()
 address_buffer = list()
+
+
+def update_exchange_rate_map():
+    global last_process_date
+    global usd_exchange_rates
+    load_last_process_date = load_processed_exchange_metadata()
+    if load_last_process_date is not None:
+        last_process_date = load_last_process_date
+
+    current_date = date.today().strftime("%Y/%m/%d")
+    usd_exchange_rates = get_coindesk_usd_amounts(last_process_date, current_date)
+    last_process_date = current_date
+
+
+def exchange_rate(block_date):
+    if block_date < COINDESK_START:
+        return 0
+    
+    if block_date > COINDESK_END_DATE:
+        update_exchange_rate_map()
+    
+    return usd_exchange_rates[block_date]
+
+
+def btc_to_currency(value, date):
+    return value * exchange_rate(date)
+
+
+def timestamp_to_date(epoch):
+    return time.strftime('%Y-%m-%d', time.localtime(int(epoch)))
+
+
+def convert_satoshi_to_usd(satoshi_value, timestamp):
+    block_date = timestamp_to_date(timestamp)
+    return btc_to_currency(satoshi_value/1e8, block_date)
+
+
+def get_coindesk_usd_amounts(start_date, end_date):
+    base_url = 'https://api.coindesk.com/v1/bpi/historical/close.json'
+    r = requests.get('{}?index=USD&currency={}&start={}&end={}'.format(base_url, 'USD', start_date, end_date ))
+    r.raise_for_status()
+    return r.json()['bpi']
 
 
 def block_to_graph(block):
@@ -130,6 +183,7 @@ def build_transactions(tx):
 
 
 def build_in_addresses(tx):
+    block_height = tx['block_number']
     for tx_input in tx['inputs']:
         for address in tx_input['addresses']:
             in_address = list()
@@ -137,10 +191,12 @@ def build_in_addresses(tx):
             in_address.append(address)
             in_address.append(tx_input['type'])
             in_address.append(tx_input['value'])
+            in_address.append(convert_satoshi_to_usd(tx_input['value'], block_timestamp_map[block_height]))
             in_address_buffer.append(in_address)
 
 
 def build_out_addresses(tx):
+    block_height = tx['block_number']
     for tx_output in tx['outputs']:
         for address in tx_output['addresses']:
             out_address = list()
@@ -148,6 +204,7 @@ def build_out_addresses(tx):
             out_address.append(address)
             out_address.append(tx_output['type'])
             out_address.append(tx_output['value'])
+            out_address.append(convert_satoshi_to_usd(tx_output['value'], block_timestamp_map[block_height]))
             out_address_buffer.append(out_address)
 
 
@@ -276,12 +333,54 @@ def split_list_as_chunks(data_list):
     return [data_list[x:x + MAX_LIST_LIMIT] for x in xrange(0, len(data_list), MAX_LIST_LIMIT)]
 
 
+def load_data(dict_name):
+    wallet_file = Path(dict_name + ".pickle")
+    if wallet_file.exists():
+        with open(dict_name + '.pickle', 'rb') as f:
+            return pickle.load(f)
+    else:
+        return dict()   
+
+
+def load_processed_exchange_metadata():
+    try:
+        if Path("processed_exchange_dates.pickle").exists():
+            last_processed_exchange_dates = load_data('processed_exchange_dates')
+            exchange_date = last_processed_exchange_dates['last_processed_date']
+            if exchange_date is not None:
+                return exchange_date
+    except:
+        pass
+
+    return None
+
+
+def save_exchange_data():
+    with open('usd_exchange_rates.pickle', 'wb') as f:
+        pickle.dump(usd_exchange_rates, f, pickle.HIGHEST_PROTOCOL)
+    
+    del usd_exchange_rates[:]
+
+    if COINDESK_END_DATE != last_process_date:
+        last_processed_exchange_dates = dict()
+        last_processed_exchange_dates['last_processed_date'] = last_process_date
+        with open('processed_exchange_dates.pickle', 'wb') as f:
+            pickle.dump(last_processed_exchange_dates, f, pickle.HIGHEST_PROTOCOL)
+
+
 def main():
+    #load USD amounts into memory
+    global usd_exchange_rates
+    usd_exchange_rates = load_data('usd_exchange_rates')
+    if len(usd_exchange_rates) == 0:
+        usd_exchange_rates = get_coindesk_usd_amounts(COINDESK_START, COINDESK_END_DATE)
+
     with open("blocks.json", "r") as f:
         blocks = f.read().replace("\n", ",")[:-1].strip()
         blocks = "[" + blocks + "]"
         blocks = json.loads(blocks)
         for block in blocks:
+            block_timestamp_map[block['number']] = block['timestamp']
             block_to_csv(block)
             block_to_graph(block)
         # sort blocks by block_height
@@ -294,10 +393,11 @@ def main():
         for tx in transactions:
             tx_to_csv(tx)
             tx_to_graph(tx)
+        block_timestamp_map.clear()
 
     write_sql_to_files()
     write_graph_to_files()
-
+    save_exchange_data()
 
 if __name__ == "__main__":
     main()

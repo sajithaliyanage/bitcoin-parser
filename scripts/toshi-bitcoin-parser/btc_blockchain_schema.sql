@@ -32,7 +32,8 @@ CREATE TABLE btc_tx_input (
     spent_tx_hash varchar(65),
 	address_type varchar(16),
 	tx_value bigint,
-	address varchar(65)
+	address varchar(65),
+	usd_value numeric
 );
 
 CREATE TABLE btc_tx_output (
@@ -42,7 +43,8 @@ CREATE TABLE btc_tx_output (
 	required_signatures integer,
 	address_type varchar(16),
 	tx_value bigint,
-	address varchar(65)
+	address varchar(65),
+	usd_value numeric
 );
 
 CREATE TABLE btc_address_cluster (
