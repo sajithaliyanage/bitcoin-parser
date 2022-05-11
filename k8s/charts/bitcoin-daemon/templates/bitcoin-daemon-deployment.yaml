@@ -20,13 +20,14 @@ spec:
       {{- if and .Values.bitcoin.nodeSelector.key .Values.bitcoin.nodeSelector.value }}
       affinity:
         nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms
-            - matchExpressions:
-              - key: {{ .Values.bitcoin.nodeSelector.key }}
-                operator: In
-                values:
-                - {{ .Values.bitcoin.nodeSelector.value }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: {{ .Values.bitcoin.nodeSelector.key }}
+                    operator: In
+                    values:
+                      - {{ .Values.bitcoin.nodeSelector.value }}
       {{- end }}
       volumes:
         - name: bitcoin-daemon-pv-storage
