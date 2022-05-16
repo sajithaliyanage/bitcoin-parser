@@ -82,68 +82,81 @@ def multi_address__clustering_heuristic():
     global last_processed_tx_hash
     global last_processed_tx_wallet_id
 
-    # Gets all the input addresses stored
-    query = "SELECT id, tx_hash, address, tx_value from btc_tx_input where id > {} and id <= {} order by id asc;".format(last_processed_input_id, int(last_processed_input_id + processing_row_count))
-    print(query)
-    tx_inputs = execute_sql_query(query)
-    #tx_inputs = [ [ 1, 'XX', 'A', 'C'], [ 2 ,  'XX', 'D', 'F'], [ 3,  'HH','A', 'K'], [ 4,  'DD', 'D'], [5,  'ZZ', 'P'], [6,  'ZZ', 'D'],  [7, 'PP', 'P' ] ]
-    #tx_limit = last_processed_input_id + 7
-    #tx_inputs = tx_inputs[last_processed_input_id:tx_limit:1]
-    print(len(tx_inputs), " - Input addresses loaded from the databse")
+    total_addresses = execute_sql_query("SELECT max(id) from btc_tx_input;")
+    print("Total inputs: ", total_addresses[0][0])
+    start_index = 0
+    end_index = int(total_addresses[0][0])
 
-    generated_wallet_id = last_processed_tx_wallet_id
-    count = 0
-    for input_row in tx_inputs:
-        id = input_row[0]
-        tx_hash = input_row[1]
-        input_address = input_row[2]
+    while start_index <= end_index:
+        print("Query input address range {} - {}".format(start_index, start_index+processing_row_count))
 
-        # print("current address - ", input_address)
-        # print("previous process tx_hash ", last_processed_tx_hash)
-        # print("current process tx_hash ", tx_hash)
-        # generate new UUID for new TX inputs
-        if tx_hash != last_processed_tx_hash or generated_wallet_id is None:
-            # print("generating wallet id .....")
-            generated_wallet_id = str(uuid.uuid4())
-            last_processed_tx_hash = tx_hash
-            last_processed_tx_wallet_id = generated_wallet_id
+        # Gets all the input addresses stored
+        query = "SELECT id, tx_hash, address, tx_value from btc_tx_input where id > {} and id <= {} order by id asc;".format(last_processed_input_id, int(last_processed_input_id + processing_row_count))
+        print(query)
+        tx_inputs = execute_sql_query(query)
+        fetched_tx_count = len(tx_inputs)
+        if start_index+processing_row_count < end_index and fetched_tx_count != processing_row_count:
+            print("Error while fetching input addresses from the databse. Hence abort the clustering process")
+            exit
+        #tx_inputs = [ [ 1, 'XX', 'A', 'C'], [ 2 ,  'XX', 'D', 'F'], [ 3,  'HH','A', 'K'], [ 4,  'DD', 'D'], [5,  'ZZ', 'P'], [6,  'ZZ', 'D'],  [7, 'PP', 'P' ] ]
+        #tx_limit = last_processed_input_id + 7
+        #tx_inputs = tx_inputs[last_processed_input_id:tx_limit:1]
+        print(len(tx_inputs), " - Input addresses loaded from the databse")
 
-        # print("current generated_wallet_id - ", generated_wallet_id)
-        wallet_id = address_wallet_map.get(input_address)
-        if wallet_id is None:
-            # print("Not found in address_wallet_map")
-            address_wallet_map[input_address] = generated_wallet_id
-            # print("Add to the address_wallet_map since wallet_id not in map")
-        else:
-            # print("Found in address_wallet_map")
-            start_wallet_id = wallet_id
-            temp_final_wallet_id = wallet_temp_map.get(start_wallet_id)
-            if temp_final_wallet_id is not None:
-                wallet_id = temp_final_wallet_id
-            
-            while True:
-                # print("current wallet_id - " ,wallet_id)
-                traverse_wallet_id = wallet_to_wallet_map.get(wallet_id)
-                # print("current traverse_wallet_id - ", traverse_wallet_id)
-                if traverse_wallet_id is None:
-                    if wallet_id != generated_wallet_id:
-                        wallet_to_wallet_map[wallet_id] = generated_wallet_id
-                        # print("Rule added to wallet_to_wallet_map " + wallet_id + " -> " + generated_wallet_id)
-                    
-                    if start_wallet_id != generated_wallet_id:
-                        wallet_temp_map[start_wallet_id] = generated_wallet_id
-                    break
-                else:
-                    # print("new value for wallet_id - ", traverse_wallet_id)
-                    wallet_id = traverse_wallet_id
+        generated_wallet_id = last_processed_tx_wallet_id
+        count = 0
+        for input_row in tx_inputs:
+            id = input_row[0]
+            tx_hash = input_row[1]
+            input_address = input_row[2]
+
+            # print("current address - ", input_address)
+            # print("previous process tx_hash ", last_processed_tx_hash)
+            # print("current process tx_hash ", tx_hash)
+            # generate new UUID for new TX inputs
+            if tx_hash != last_processed_tx_hash or generated_wallet_id is None:
+                # print("generating wallet id .....")
+                generated_wallet_id = str(uuid.uuid4())
+                last_processed_tx_hash = tx_hash
+                last_processed_tx_wallet_id = generated_wallet_id
+
+            # print("current generated_wallet_id - ", generated_wallet_id)
+            wallet_id = address_wallet_map.get(input_address)
+            if wallet_id is None:
+                # print("Not found in address_wallet_map")
+                address_wallet_map[input_address] = generated_wallet_id
+                # print("Add to the address_wallet_map since wallet_id not in map")
+            else:
+                # print("Found in address_wallet_map")
+                start_wallet_id = wallet_id
+                temp_final_wallet_id = wallet_temp_map.get(start_wallet_id)
+                if temp_final_wallet_id is not None:
+                    wallet_id = temp_final_wallet_id
+                
+                while True:
+                    # print("current wallet_id - " ,wallet_id)
+                    traverse_wallet_id = wallet_to_wallet_map.get(wallet_id)
+                    # print("current traverse_wallet_id - ", traverse_wallet_id)
+                    if traverse_wallet_id is None:
+                        if wallet_id != generated_wallet_id:
+                            wallet_to_wallet_map[wallet_id] = generated_wallet_id
+                            # print("Rule added to wallet_to_wallet_map " + wallet_id + " -> " + generated_wallet_id)
                         
-        
-        # print("\n ------------------------- \n")
-        last_processed_input_id = id
-        count = count + 1
+                        if start_wallet_id != generated_wallet_id:
+                            wallet_temp_map[start_wallet_id] = generated_wallet_id
+                        break
+                    else:
+                        # print("new value for wallet_id - ", traverse_wallet_id)
+                        wallet_id = traverse_wallet_id
+                            
+            
+            # print("\n ------------------------- \n")
+            last_processed_input_id = id
+            count = count + 1
 
-        if count % 100000 == 0:
-            print("Processed another 100000 input address, total: ", count)
+            if count % 100000 == 0:
+                print("Processed another 100000 input address, total: ", count)
+        start_index = start_index + processing_row_count
 
 
 def save_wallet_data():
@@ -266,7 +279,6 @@ def main():
         global wallet_temp_map
         wallet_temp_map = load_wallet_data('wallet_temp_map')
         print('Loaded {0} wallet_temp_map entries to the memory'.format(len(wallet_temp_map)))
-
 
     if len(sys.argv) >= 2 and sys.argv[1] == 'wallet_parser':
         global wallet_final_state_map 

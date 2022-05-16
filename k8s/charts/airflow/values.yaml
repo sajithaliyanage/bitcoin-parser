@@ -1,0 +1,36 @@
+airflow:
+  executor: KubernetesExecutor
+executor: KubernetesExecutor
+pgbouncer:
+  enabled: false
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/cibr-qcri/cibr-tasks.git
+    branch: main
+    subPath: "dags/"
+allowPodLaunching: true
+webserverSecretKey: 4879917231bb76683addad4f713b5230
+flower:
+  enabled: false
+workers:
+  enabled: false
+redis:
+  enabled: false
+cleanup:
+  enabled: true
+images:
+  migrationsWaitTimeout: 1
+sheduler:
+  livenessProbe:
+    timeoutSeconds: 500
+  replicas: 5
+webserver:
+  livenessProbe:
+    timeoutSeconds: 500
+  replicas: 5
+triggerer:
+  livenessProbe:
+    timeoutSeconds: 500
+  replicas: 5
+multiNamespaceMode: true

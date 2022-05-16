@@ -4,12 +4,12 @@ import gc
 import psycopg2
 from psycopg2 import Error
 
-WALLET_COLLECTION = 'btc_wallets/{0}'
+WALLET_COLLECTION = 'btc_wallets_update/{0}'
 MAX_LIST_LIMIT = 100000
 gp_connection = None
 gp_cursor = None
 arango_connection = None
-MAX_CURSOR_LIMIT = 5000000
+MAX_CURSOR_LIMIT = 500000
 
 wallet_buffer = list()
 edge_buffer = list()
@@ -55,6 +55,7 @@ def execute_sql_query(query):
     gp_cursor.execute(query)
     return gp_cursor.fetchall()
 
+
 def execute_sql_batch_query(query):
     gp_cursor.execute(query)
     return gp_cursor
@@ -79,27 +80,29 @@ def close_arango_connection():
         print("Error while closing the connection to ArangoDB", error)
 
 
-def create_edge(wallet_in, wallet_out, tx_hash, in_amount, out_amount):
+def create_edge(wallet_in, wallet_out, tx_hash, in_satoshi_amount, out_satoshi_amount, in_usd_amount, out_usd_amount):
     edge = dict()
     edge['_from'] = WALLET_COLLECTION.format(wallet_in)
     edge['_to'] = WALLET_COLLECTION.format(wallet_out)
     edge['tx_hash'] = tx_hash
-    edge['in_amount'] = in_amount
-    edge['out_amount'] = out_amount
+    edge['in_satoshi_amount'] = in_satoshi_amount
+    edge['out_satoshi_amount'] = out_satoshi_amount
+    edge['in_usd_amount'] = float(in_usd_amount)
+    edge['out_usd_amount'] = float(out_usd_amount)
     edge_buffer.append(edge)
 
 
 def write_wallet_vertex():
-    if arango_connection.has_graph('btc_wallet_cluster'):
-        arango_connection.graph('btc_wallet_cluster')
+    if arango_connection.has_graph('btc_wallet_cluster_update'):
+        arango_connection.graph('btc_wallet_cluster_update')
     else:
-        arango_connection.create_graph('btc_wallet_cluster')
+        arango_connection.create_graph('btc_wallet_cluster_update')
 
-    wc = arango_connection.graph('btc_wallet_cluster')
-    if wc.has_vertex_collection("btc_wallets"):
-        wallets = wc.vertex_collection("btc_wallets")
+    wc = arango_connection.graph('btc_wallet_cluster_update')
+    if wc.has_vertex_collection("btc_wallets_update"):
+        wallets = wc.vertex_collection("btc_wallets_update")
     else:
-        wallets = wc.create_vertex_collection("btc_wallets")
+        wallets = wc.create_vertex_collection("btc_wallets_update")
 
     print("[ArangoDB] start adding wallets - ", len(wallet_buffer))
     try:
@@ -120,30 +123,30 @@ def write_wallet_vertex():
 
 
 def write_wallet_edges():
-    if arango_connection.has_graph('btc_wallet_cluster'):
-        arango_connection.graph('btc_wallet_cluster')
+    if arango_connection.has_graph('btc_wallet_cluster_update'):
+        arango_connection.graph('btc_wallet_cluster_update')
     else:
-        arango_connection.create_graph('btc_wallet_cluster')
+        arango_connection.create_graph('btc_wallet_cluster_update')
 
-    wc = arango_connection.graph('btc_wallet_cluster')
+    wc = arango_connection.graph('btc_wallet_cluster_update')
 
-    if not wc.has_edge_definition("btc_wallet_wallet_edges"):
+    if not wc.has_edge_definition("btc_wallet_edges_update"):
         edges = wc.create_edge_definition(
-            edge_collection="btc_wallet_wallet_edges",
-            from_vertex_collections=["btc_wallets", "btc_addresses"],
-            to_vertex_collections=["btc_wallets", "btc_addresses"])
+            edge_collection="btc_wallet_edges_update",
+            from_vertex_collections=["btc_wallets_update", "btc_addresses"],
+            to_vertex_collections=["btc_wallets_update", "btc_addresses"])
     else:
-        edges = wc.edge_collection("btc_wallet_wallet_edges")
+        edges = wc.edge_collection("btc_wallet_edges_update")
 
 
     print("[ArangoDB] start adding wallet edges - ", len(edge_buffer))
     try:
         chunks = split_list_as_chunks(edge_buffer)
         print("Chunk count to be processed - ", len(chunks))
-        del edge_buffer[:]
+        edge_buffer.clear()
         for chunk in chunks:
             edges.insert_many(chunk)
-        chunks.clear()    
+        chunks.clear()
     except:
         pass
 
@@ -168,16 +171,16 @@ def main():
         connects_to_arango()
     
     # insert wallet vertices
-    btc_wallet_records = execute_sql_query("SELECT cluster_id from btx_wallet;")
+    btc_wallet_records = execute_sql_query("SELECT cluster_id from tmp_btc_wallet;")
     print("Total wallet count - {}".format(len(btc_wallet_records)))
     for input_row in btc_wallet_records:
         wallet_id = input_row[0]
         wallet_to_graph(wallet_id)
     write_wallet_vertex()
     
-    total_addresses = execute_sql_query("SELECT max(id) from btc_address_cluster;")
+    total_addresses = execute_sql_query("SELECT max(id) from tmp_btc_address_cluster;")
     print("Total addresses: ", total_addresses[0][0])
-    start_index = 52849782
+    start_index = 0
     end_index = int(total_addresses[0][0])
     chunk_size = 1000000
     
@@ -185,9 +188,8 @@ def main():
         cursor = gp_connection.cursor(name='fetch_large_result')
         print("Query wallet map for address range {} - {}".format(start_index, start_index+chunk_size))
         # get all wallet->wallet map by tx_hash of this address range
-        cursor.execute("select wallet_in, wallet_out, in_wallets.tx_hash as tx_hash, input_amount, output_amount from (SELECT btc_address_cluster.address as address, tx_hash, tx_value as input_amount, cluster_id as wallet_in from btc_address_cluster INNER JOIN btc_tx_input on btc_address_cluster.address=btc_tx_input.address where btc_address_cluster.id > {} and btc_address_cluster.id <= {} order by btc_address_cluster.id asc) as in_wallets inner join (SELECT btc_address_cluster.address as address, tx_hash, tx_value as output_amount, cluster_id as wallet_out from btc_address_cluster INNER JOIN btc_tx_output on btc_address_cluster.address=btc_tx_output.address where btc_address_cluster.id > {} and btc_address_cluster.id <= {} order by btc_address_cluster.id asc) as out_wallets on in_wallets.tx_hash=out_wallets.tx_hash;".format(start_index, start_index+chunk_size, start_index, start_index+chunk_size))
+        cursor.execute("select wallet_in, wallet_out, in_wallets.tx_hash as tx_hash, input_satoshi_amount, output_satoshi_amount, input_usd_amount, output_usd_amount from (SELECT btc_input_addresses.address as address, tx_hash, tx_value as input_satoshi_amount, cluster_id as wallet_in, usd_value as input_usd_amount from (select address, cluster_id from (select id, address, cluster_id from tmp_btc_address_cluster where id > {} and id <= {}) as address_wallet order by id asc) as btc_input_addresses INNER JOIN btc_tx_input on btc_input_addresses.address=btc_tx_input.address ) as in_wallets inner join (SELECT btc_output_addresses.address as address, tx_hash, tx_value as output_satoshi_amount, cluster_id as wallet_out, usd_value as output_usd_amount from (select address, cluster_id from (select id, address, cluster_id from tmp_btc_address_cluster where id > {} and id <= {}) as address_wallet order by id asc) as btc_output_addresses INNER JOIN btc_tx_output on btc_output_addresses.address=btc_tx_output.address ) as out_wallets on in_wallets.tx_hash=out_wallets.tx_hash;".format(start_index, start_index+chunk_size, start_index, start_index+chunk_size))
         fetched_total_count = 0
-        print("Query executed for address range {} - {}".format(start_index, start_index+chunk_size))
         while True:
             records = cursor.fetchmany(size=MAX_CURSOR_LIMIT)
             if not records:
@@ -195,7 +197,7 @@ def main():
             fetched_total_count = fetched_total_count + len(records)
             print("Fetched wallet-wallet edges count - {}".format(fetched_total_count))
             for address in records:
-                create_edge(address[0], address[1], address[2], address[3], address[4])
+                create_edge(address[0], address[1], address[2], address[3], address[4], address[5], address[6])
             write_wallet_edges()
         cursor.close()
         start_index = start_index + chunk_size

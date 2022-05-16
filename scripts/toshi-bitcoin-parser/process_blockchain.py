@@ -173,12 +173,14 @@ def build_transactions(tx):
     transaction.append(tx['block_number'])
     transaction.append(tx['index'])
     transaction.append(tx['fee'])
-    # transaction.append(tx['block_timestamp'])
     transaction.append(tx['input_value'])
     transaction.append(tx['output_value'])
     transaction.append(tx['is_coinbase'])
     transaction.append(tx['input_count'])
     transaction.append(tx['output_count'])
+    transaction.append(convert_satoshi_to_usd(tx['input_value'], block_timestamp_map[tx['block_number']]))
+    transaction.append(convert_satoshi_to_usd(tx['output_value'], block_timestamp_map[tx['block_number']]))
+    transaction.append(tx['block_timestamp'])
     transaction_buffer.append(transaction)
 
 
@@ -192,6 +194,8 @@ def build_in_addresses(tx):
             in_address.append(tx_input['type'])
             in_address.append(tx_input['value'])
             in_address.append(convert_satoshi_to_usd(tx_input['value'], block_timestamp_map[block_height]))
+            in_address.append(block_height)
+            in_address.append(tx['block_timestamp'])
             in_address_buffer.append(in_address)
 
 
@@ -205,6 +209,8 @@ def build_out_addresses(tx):
             out_address.append(tx_output['type'])
             out_address.append(tx_output['value'])
             out_address.append(convert_satoshi_to_usd(tx_output['value'], block_timestamp_map[block_height]))
+            out_address.append(block_height)
+            out_address.append(tx['block_timestamp'])
             out_address_buffer.append(out_address)
 
 
@@ -398,6 +404,7 @@ def main():
     write_sql_to_files()
     write_graph_to_files()
     save_exchange_data()
+
 
 if __name__ == "__main__":
     main()

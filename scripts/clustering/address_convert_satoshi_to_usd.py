@@ -3,6 +3,7 @@ import csv
 import requests
 import psycopg2
 from psycopg2 import Error
+import json
 
 gp_connection = None
 gp_cursor = None
@@ -77,12 +78,9 @@ def convert_satoshi_to_usd(address_record, store_list):
     tx_value = address_record[2]/1e8
     block_date = timestamp_to_date(block_time)
     usd_amount = btc_to_currency(tx_value, block_date)
-    cur_entry = list()
+    cur_entry = (address_id, usd_amount)
 
     # print("Covert timestamp:{} to date:{}".format(block_time, block_date))
-    cur_entry.append(address_id)
-    cur_entry.append(usd_amount)
-
     # print("Covert satoshi:{} to btc:{} to usd:{}".format(address_record[2], tx_value, usd_amount))
     store_list.append(cur_entry)
 
@@ -96,6 +94,28 @@ def write_to_csv(is_input):
         with open('output_usd.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerows(outputs_with_usd)
+
+
+def update_input_batch():
+    gp_cursor.execute( """UPDATE btc_tx_input 
+                           SET usd_value = update_payload.usd 
+                           FROM (
+                                SELECT (value->>0)::integer AS id, (value->>1)::decimal AS usd 
+                                FROM json_array_elements(%s)
+                            ) update_payload
+                           WHERE btc_tx_input.id = update_payload.id""", [json.dumps(inputs_with_usd)])
+    gp_connection.commit()
+
+
+def update_output_batch():
+    gp_cursor.execute( """UPDATE btc_tx_output 
+                           SET usd_value = update_payload.usd 
+                           FROM (
+                                SELECT (value->>0)::integer AS id, (value->>1)::decimal AS usd 
+                                FROM json_array_elements(%s)
+                           ) update_payload 
+                           WHERE btc_tx_output.id = update_payload.id""", [json.dumps(outputs_with_usd)])
+    gp_connection.commit()
 
 
 def main():
@@ -121,8 +141,10 @@ def main():
             convert_satoshi_to_usd(record, inputs_with_usd)
        
         start_index = start_index + chunk_size
-    write_to_csv(True)
-    inputs_with_usd.clear()
+        update_input_batch()
+        print("Updated usd values input address range {} - {}".format(start_index, start_index+chunk_size))
+        inputs_with_usd.clear()
+    # write_to_csv(True)
 
 
     # iterate for output entries
@@ -140,8 +162,10 @@ def main():
             convert_satoshi_to_usd(record, outputs_with_usd)
        
         start_index = start_index + chunk_size
+        update_output_batch()
+        print("Updated usd values output address range {} - {}".format(start_index, start_index+chunk_size))
+        outputs_with_usd.clear()
     write_to_csv(False)
-    outputs_with_usd.clear()
 
     # close arangodb connection
     close_gp_connection()
